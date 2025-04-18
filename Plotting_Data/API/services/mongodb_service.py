@@ -133,7 +133,16 @@ def get_stock_data(emiten, period='all'):
 
         # --- Aggregation ---
         agg_df = None
-        if period == 'monthly':
+        if period == 'weekly':
+            # Resample to weekly frequency. Use 'W' for week end or 'W-MON' for week start on Monday.
+            agg_df = df.resample('W').agg(
+                Open=('Open', 'first'),
+                High=('High', 'max'),
+                Low=('Low', 'min'),
+                Close=('Close', 'last'),
+                Volume=('Volume', 'sum')
+            )
+        elif period == 'monthly':
             # Resample to monthly frequency. Use 'M' for month end or 'MS' for month start.
             agg_df = df.resample('M').agg(
                 Open=('Open', 'first'),
@@ -174,6 +183,9 @@ def get_stock_data(emiten, period='all'):
 
         # Add emiten back
         agg_df['emiten'] = emiten
+
+        # Replace NaN with None for JSON compatibility BEFORE converting to dict
+        agg_df = agg_df.astype(object).where(pd.notnull(agg_df), None)
 
         # Convert DataFrame back to list of dictionaries
         result = agg_df.to_dict('records')
