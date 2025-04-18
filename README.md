@@ -1,6 +1,6 @@
 # Stock Market Data Analysis Project
 
-## Introductory
+## Introduction
 Project ini ditujukan untuk memenuhi Tugas 2 dari Mata Kuliah Big Data dengan Anggota kelompok sebagai berikut:
 - Varrell Rizky Irvanni Mahkota (2306245)   
 - Muhammad Hafidh Fadhilah (2305672)
