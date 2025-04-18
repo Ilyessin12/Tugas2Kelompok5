@@ -110,11 +110,6 @@ python -m http.server 8000
 ```
 3. Akses web app melalui `http://localhost:8000`
 
-## Kontribusi
-- **Transformasi Data**: [Anggota 1, Anggota 2]
-- **Visualisasi Data**: [Anggota 3, Anggota 4]
-- **Integrasi dan Dokumentasi**: [Anggota 5]
-
 ## Catatan
 - Aplikasi memerlukan koneksi internet untuk memuat library Plotly dari CDN
 - Data saham yang ditampilkan adalah data historis, bukan real-time
