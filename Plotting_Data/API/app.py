@@ -13,7 +13,8 @@ app.register_blueprint(stock_bp, url_prefix='/api') # Add '/api' prefix to route
 
 @app.route('/')
 def index():
-    return "Stock Data API is running!, how to use: append /api/stock/<emiten>?period=<period> to the URL"
+    return "Stock Data API is running!, how to use: append /api/stock/(nama emiten pake.JK)?period=('daily', 'monthly', 'yearly', '1y', '3y', '5y', 'all')" \
+    "     contoh: /api/stock/AALI.JK?period=monthly"
 
 if __name__ == '__main__':
     # Use host='0.0.0.0' to make it accessible on your network
