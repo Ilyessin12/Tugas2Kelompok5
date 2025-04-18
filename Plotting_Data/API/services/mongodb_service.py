@@ -142,9 +142,18 @@ def get_stock_data(emiten, period='all'):
                 Close=('Close', 'last'),
                 Volume=('Volume', 'sum')
             )
+        elif period == 'quarterly': # Added quarterly aggregation
+        # Resample to quarterly frequency. Use 'Q' for quarter end or 'QS' for quarter start.
+            agg_df = df.resample('Q').agg(
+                Open=('Open', 'first'),
+                High=('High', 'max'),
+                Low=('Low', 'min'),
+                Close=('Close', 'last'),
+                Volume=('Volume', 'sum')
+        )
         elif period == 'yearly':
             # Resample to yearly frequency. Use 'Y' for year end or 'YS' for year start.
-             agg_df = df.resample('Y').agg(
+            agg_df = df.resample('Y').agg(
                 Open=('Open', 'first'),
                 High=('High', 'max'),
                 Low=('Low', 'min'),
