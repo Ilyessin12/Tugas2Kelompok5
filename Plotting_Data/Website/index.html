@@ -1,0 +1,390 @@
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Data Visualization</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        #chartContainer {
+            width: 100%;
+            height: 500px;
+            margin-top: 20px;
+        }
+        .error {
+            color: #d9534f;
+            background-color: #f2dede;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .popular-stocks {
+            margin-top: 15px;
+        }
+        .stock-button {
+            background-color: #f1f1f1;
+            color: #333;
+            border: 1px solid #ddd;
+            padding: 5px 10px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .stock-button:hover {
+            background-color: #e1e1e1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stock Data Visualization</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label for="stockSymbol">Stock Symbol:</label>
+                <select id="stockSymbol">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="timePeriod">Time Period:</label>
+                <select id="timePeriod">
+                    <option value="daily">Daily</option>
+                    <option value="monthly">Monthly</option>
+                    <!-- Per 3 bulan/ quarter-->
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="1y">1 Year</option>
+                    <option value="3y">3 Years</option>
+                    <option value="5y">5 Years</option>
+                    <option value="all">All Data</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="chartType">Chart Type:</label>
+                <select id="chartType">
+                    <option value="candlestick">Candlestick</option>
+                    <option value="ohlc">OHLC</option>
+                    <option value="line">Line (Close)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="fetchButton">Fetch & Plot Data</button>
+            </div>
+        </div>
+        
+        <div id="errorContainer" class="error" style="display:none;"></div>
+        <div id="loadingIndicator" class="loading" style="display:none;">Loading data...</div>
+        <div id="chartContainer"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000/api';
+        
+        // Elements
+        const stockSymbolSelect = document.getElementById('stockSymbol'); // Changed from stockSymbolInput
+        const timePeriodSelect = document.getElementById('timePeriod');
+        const chartTypeSelect = document.getElementById('chartType');
+        const fetchButton = document.getElementById('fetchButton');
+        const errorContainer = document.getElementById('errorContainer');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const chartContainer = document.getElementById('chartContainer');
+        // const stockButtons = document.querySelectorAll('.stock-button'); // Removed
+
+        // Event listeners
+        fetchButton.addEventListener('click', fetchAndPlotData);
+        stockSymbolSelect.addEventListener('change', fetchAndPlotData); // Optional: Fetch data when selection changes
+
+        /* Removed stock button listeners
+        stockButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                stockSymbolInput.value = this.dataset.symbol;
+            });
+        });
+        */
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', async function() {
+            await populateStockSymbols(); // Populate dropdown first
+            fetchAndPlotData(); // Then fetch data for the default selection
+        });
+
+        async function populateStockSymbols() {
+            try {
+                const response = await fetch(EMITEN_LIST_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const symbols = await response.json();
+
+                symbols.forEach(symbol => {
+                    const option = document.createElement('option');
+                    const symbolWithSuffix = `${symbol}.JK`;
+                    option.value = symbolWithSuffix;
+                    option.textContent = symbolWithSuffix;
+                    stockSymbolSelect.appendChild(option);
+                });
+
+                // Set a default value if needed, e.g., the first one or a specific popular one
+                if (stockSymbolSelect.options.length > 0) {
+                     // Find AALI.JK and set it as default, or fallback to the first option
+                    const defaultSymbol = "AALI.JK";
+                    let defaultIndex = Array.from(stockSymbolSelect.options).findIndex(opt => opt.value === defaultSymbol);
+                    stockSymbolSelect.selectedIndex = defaultIndex !== -1 ? defaultIndex : 0;
+                }
+
+            } catch (error) {
+                console.error("Error fetching or populating stock symbols:", error);
+                showError("Could not load stock symbols list.");
+            }
+        }
+
+        async function fetchAndPlotData() {
+            // Get value from select element
+            const stockSymbol = stockSymbolSelect.value;
+            if (!stockSymbol) {
+                showError('Please select a stock symbol');
+                return;
+            }
+
+            const timePeriod = timePeriodSelect.value;
+            const chartType = chartTypeSelect.value;
+
+            showLoading();
+            clearError();
+
+            try {
+                const url = `${API_BASE_URL}/stock/${stockSymbol}?period=${timePeriod}`;
+                const response = await fetch(url);
+
+                // Get the raw response text first for debugging
+                const responseText = await response.text();
+                console.log("Raw API Response Text:", responseText); // Log the raw text
+                console.log("Response Status:", response.status);
+                console.log("Response OK:", response.ok);
+                console.log("Response Headers:", Object.fromEntries(response.headers.entries())); // Log headers
+
+                if (!response.ok) {
+                    // Show part of the raw response in the error message
+                    const errorDetail = responseText.length > 100 ? responseText.substring(0, 100) + '...' : responseText;
+                    if (response.status === 404) {
+                        showError(`No data found for ${stockSymbol} with period ${timePeriod}. Server response: ${errorDetail}`);
+                    } else {
+                        throw new Error(`API request failed with status: ${response.status}. Server response: ${errorDetail}`);
+                    }
+                    // Clear the chart if there was an error
+                    Plotly.purge(chartContainer);
+                    return;
+                }
+
+                let data;
+                try {
+                    // Now try to parse the text we already fetched
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error("JSON Parse Error:", parseError);
+                    console.error("Text that failed parsing:", responseText); // Log the problematic text
+                    showError(`Failed to parse JSON response: ${parseError.message}. Check the browser console for the raw response text.`);
+                    // Clear the chart if parsing fails
+                    Plotly.purge(chartContainer);
+                    return; // Stop execution
+                }
+
+
+                if (Array.isArray(data) && data.length > 0) {
+                    plotData(data, stockSymbol, chartType);
+                } else {
+                    showError(`No data available or unexpected format for ${stockSymbol} and period ${timePeriod}.`);
+                    console.log("Parsed data (but not plotted):", data);
+                    // Clear the chart if data is empty/invalid
+                    Plotly.purge(chartContainer);
+                }
+            } catch (error) {
+                // This catches network errors (fetch couldn't complete) or errors thrown above
+                showError(`Error: ${error.message}`);
+                console.error('Fetch/Processing error:', error);
+                // Clear the chart on general errors
+                Plotly.purge(chartContainer);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function plotData(data, stockSymbol, chartType) {
+            // Convert date strings to Date objects for proper plotting
+            const processedData = data.map(item => ({
+                ...item,
+                Date: item.Date // Date is already formatted as DD/MM/YYYY
+            }));
+            
+            // Sort data by date (ascending)
+            processedData.sort((a, b) => {
+                const dateA = new Date(a.Date.split('/').reverse().join('/'));
+                const dateB = new Date(b.Date.split('/').reverse().join('/'));
+                return dateA - dateB;
+            });
+            
+            // Extract data for plotting
+            const dates = processedData.map(item => item.Date);
+            const opens = processedData.map(item => item.Open);
+            const highs = processedData.map(item => item.High);
+            const lows = processedData.map(item => item.Low);
+            const closes = processedData.map(item => item.Close);
+            const volumes = processedData.map(item => item.Volume);
+            
+            let traces = [];
+            let layout = {
+                title: `${stockSymbol} Stock Data`,
+                xaxis: {
+                    title: 'Date',
+                    rangeslider: { visible: true },
+                    tickformat: '%d/%m/%Y'
+                },
+                yaxis: {
+                    title: 'Price',
+                    autorange: true,
+                },
+                shapes: [], // For trend lines, support/resistance, etc.
+                annotations: []
+            };
+            
+            if (chartType === 'candlestick') {
+                traces = [{
+                    type: 'candlestick',
+                    x: dates,
+                    open: opens,
+                    high: highs,
+                    low: lows,
+                    close: closes,
+                    name: stockSymbol,
+                    increasing: { line: { color: '#26A69A' } },
+                    decreasing: { line: { color: '#EF5350' } }
+                }];
+            } else if (chartType === 'ohlc') {
+                traces = [{
+                    type: 'ohlc',
+                    x: dates,
+                    open: opens,
+                    high: highs,
+                    low: lows,
+                    close: closes,
+                    name: stockSymbol,
+                    increasing: { line: { color: '#26A69A' } },
+                    decreasing: { line: { color: '#EF5350' } }
+                }];
+            } else if (chartType === 'line') {
+                traces = [{
+                    type: 'scatter',
+                    mode: 'lines',
+                    x: dates,
+                    y: closes,
+                    name: 'Close Price',
+                    line: { color: '#2196F3', width: 2 }
+                }];
+                
+                // Add volume as a bar chart at the bottom
+                layout.yaxis2 = {
+                    title: 'Volume',
+                    domain: [0, 0.2],
+                    autorange: true
+                };
+                
+                layout.yaxis.domain = [0.3, 1];
+                
+                traces.push({
+                    type: 'bar',
+                    x: dates,
+                    y: volumes,
+                    name: 'Volume',
+                    marker: { color: '#7986CB' },
+                    yaxis: 'y2'
+                });
+            }
+            
+            Plotly.newPlot(chartContainer, traces, layout, { responsive: true });
+        }
+        
+        function showLoading() {
+            loadingIndicator.style.display = 'block';
+        }
+        
+        function hideLoading() {
+            loadingIndicator.style.display = 'none';
+        }
+        
+        function showError(message) {
+            errorContainer.textContent = message;
+            errorContainer.style.display = 'block';
+        }
+        
+        function clearError() {
+            errorContainer.textContent = '';
+            errorContainer.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
